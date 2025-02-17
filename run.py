@@ -1,31 +1,34 @@
 import sys
 import time
-from ultralytics import YOLO
-import cv2
+import tkinter as tk
 
-if len(sys.argv) != 2:
-    print(f"usage: {sys.argv[0]} path/to/model.pt")
-    sys.exit(1)
+import numpy as np
+from PIL import Image, ImageTk
+# from ultralytics import YOLO
+import pyrealsense2 as rs
 
-model = YOLO(sys.argv[1])
+# if len(sys.argv) != 2:
+#     print(f"usage: {sys.argv[0]} path/to/model.pt")
+#     sys.exit(1)
 
-w, h = 640, 480
-camera = cv2.VideoCapture(0)
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, w)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
-camera.set(cv2.CAP_PROP_FPS, 60)
+# model = YOLO(sys.argv[1])
 
-fps = 0
+w, h, fps = 640, 480, 30
+pipe = rs.pipeline()
+config = rs.config()
+config.enable_stream(rs.stream.depth, w, h, rs.format.z16, fps)
+config.enable_stream(rs.stream.color, w, h, rs.format.rgb8, fps)
+
+pipe.start(config)
+
+root = tk.Tk()
 while True:
-    start = time.time()
-    err, img = camera.read()
-    if not err:
-        print("error reading image, continuing")
-        continue
-    preds = model(img)
-    for pred in preds:
-        img = cv2.rectangle(img, )
-    img = cv2.putText(img, f"fps: {fps:.0f}", (30, 30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 2, cv2.LINE_AA)
-    cv2.imshow("fun", img)
-    cv2.waitKey(1) # currently shows image, needs python 3.10 for cscore library
-    fps = 1 / (time.time() - start)
+    frames = pipe.wait_for_frames()
+    depth = pipe.get_depth_frame()
+    color = pipe.get_color_frame()
+    img = Image.fromarray(np.asanyarray(color))
+
+    imgtk = ImageTk.PhotoImage(img)
+    label = tk.Label(root, image=imgtk)
+    label.pack()
+    tk.update()
