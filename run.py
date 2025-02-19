@@ -1,11 +1,7 @@
-import sys
-import time
-import tkinter as tk
-
-from PIL import Image, ImageTk
-from cscore import CameraServer, VideoMode
+from cscore import CameraServer
 import numpy as np
 import pyrealsense2 as rs
+import cv2
 # from ultralytics import YOLO
 
 # if len(sys.argv) != 2:
@@ -21,15 +17,8 @@ config.enable_stream(rs.stream.depth, w, h, rs.format.z16, fps)
 config.enable_stream(rs.stream.color, w, h, rs.format.rgb8, fps)
 pipe.start(config)
 
-root = tk.Tk()
-txt = tk.Label(root, text="Color + Depth")
-txt.pack()
-c_label = tk.Label(root)
-c_label.pack()
-d_label = tk.Label(root)
-d_label.pack()
-
-cs_video = CameraServer.putVideo("RealSense", w, h)
+cs_video = CameraServer.putVideo("Video", w, h)
+cs_depth = CameraServer.putVideo("Depth", w, h)
 
 while True:
     frames = pipe.wait_for_frames()
@@ -38,16 +27,13 @@ while True:
 
     color_array = np.asanyarray(color.get_data())
     depth_array = np.asanyarray(depth.get_data(), dtype=np.float64)
-    depth_array /= depth_array.max()
 
-    c_img = Image.fromarray(color_array)
-    d_img = Image.fromarray(depth_array*255)
+    depth_array = cv2.convertScaleAbs(depth_array, alpha=0.03)
+    depth_array = cv2.applyColorMap(depth_array, cv2.COLORMAP_JET)
 
-    cs_video.putFrame(np.ascontiguousarray(color_array[..., ::-1]))
-    
-    c_imgtk = ImageTk.PhotoImage(c_img)
-    d_imgtk = ImageTk.PhotoImage(d_img)
-    c_label.config(image=c_imgtk)
-    d_label.config(image=d_imgtk)
-    
-    root.update()
+    cv2.imshow("Color", color_array)
+    cv2.imshow("Depth Map", depth_array)
+    cv2.waitKey(1)
+
+    cs_video.putFrame(cv2.cvtColor(color_array, cv2.COLOR_RGB2BGR))
+    cs_depth.putFrame(depth_array)
